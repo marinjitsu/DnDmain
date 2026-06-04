@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=600, height=600, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ray-Ban Meta RPG Adventure</title>
+    <title>Ray-Ban Meta RPG - Dynamic Attacks</title>
     <style>
         /* Optimized for Meta Ray-Ban Display 600x600 In-Lens Resolution */
         :root {
@@ -12,6 +12,7 @@
             --danger: #FF3366;
             --success: #33FF77;
             --gold: #FFD700;
+            --mission: #DE7BFF;
         }
         body {
             margin: 0; padding: 0;
@@ -28,52 +29,67 @@
         }
         .active { display: flex; }
         
-        h1 { font-size: 48px; text-align: center; margin: 0 0 15px 0; color: var(--primary); text-shadow: 0 0 10px var(--primary); }
-        h2 { font-size: 32px; margin: 0 0 15px 0; text-align: center; }
+        h1 { font-size: 48px; text-align: center; margin: 0 0 10px 0; color: var(--primary); text-shadow: 0 0 10px var(--primary); }
+        h2 { font-size: 30px; margin: 0 0 15px 0; text-align: center; }
         
         button {
             background: #1A1A1A; color: white;
             border: 3px solid #333; border-radius: 12px;
             font-size: 26px; font-weight: bold;
-            margin: 8px; padding: 15px;
+            margin: 6px; padding: 14px;
             width: 100%; cursor: pointer; transition: all 0.2s;
         }
-        button:focus, button:hover { border-color: var(--primary); background: rgba(0, 255, 234, 0.1); transform: scale(1.02); outline: none; }
-        button:disabled { opacity: 0.5; border-color: #333; pointer-events: none; }
+        button:focus, button:hover { 
+            border-color: var(--primary); 
+            background: rgba(0, 255, 234, 0.15); 
+            transform: scale(1.02); 
+            outline: none;
+            box-shadow: 0 0 15px rgba(0, 255, 234, 0.4);
+        }
+        button:disabled { opacity: 0.3; border-color: #333; pointer-events: none; }
         
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
         
-        /* Persistent HUD */
+        /* Persistent Multi-Row HUD */
         .hud { 
-            width: 100%; display: flex; justify-content: space-between; 
-            font-size: 22px; font-weight: bold; margin-bottom: 15px; 
-            border-bottom: 2px solid #333; padding-bottom: 10px; flex-wrap: wrap;
+            width: 100%; display: flex; flex-direction: column;
+            font-size: 20px; font-weight: bold; margin-bottom: 12px; 
+            border-bottom: 2px solid #333; padding-bottom: 8px;
         }
-        .hud div { margin: 5px; }
+        .hud-row { display: flex; justify-content: space-between; width: 100%; margin-bottom: 4px; }
         .text-success { color: var(--success); }
         .text-danger { color: var(--danger); }
         .text-gold { color: var(--gold); }
+        .text-mission { color: var(--mission); }
         
-        /* Story & Logs */
-        .story-text { font-size: 28px; text-align: center; margin-bottom: 20px; height: 100px; font-style: italic; color: #CCC; }
+        /* Story, Campaign Scroll & Logs */
+        .story-text { font-size: 24px; text-align: center; margin-bottom: 10px; height: 95px; font-style: italic; color: #CCC; overflow: hidden; }
         #log {
-            font-size: 24px; color: #AAA; height: 100px; width: 100%;
+            font-size: 22px; color: #AAA; height: 110px; width: 100%;
             text-align: center; margin-top: 15px;
-            background: #111; border-radius: 12px; padding: 10px; box-sizing: border-box;
-            overflow: hidden;
+            background: #111; border-radius: 12px; padding: 8px; box-sizing: border-box;
+            overflow: hidden; display: flex; flex-direction: column; justify-content: center;
         }
         .highlight { color: var(--primary); font-weight: bold; }
         .graphic { font-size: 70px; margin: 10px 0; animation: float 3s ease-in-out infinite; }
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        
+        .scrollable-ending { font-size: 22px; line-height: 1.4; text-align: center; color: #EEE; height: 320px; overflow-y: auto; padding: 10px; border: 1px solid #222; }
     </style>
 </head>
 <body>
 
+    <!-- Menu / Difficulty Screen -->
     <div id="screen-menu" class="screen active">
-        <h1>META ADVENTURE</h1>
-        <button onclick="showScreen('screen-class')">Start Journey</button>
+        <h1>LENS ADVENTURE</h1>
+        <h2>another app by MarinJitsu studios</h2>
+        <h3>Select Difficulty</h3>
+        <button onclick="setDifficulty('Easy')">🟢 Easy Tier</button>
+        <button onclick="setDifficulty('Normal')">🟡 Normal Tier</button>
+        <button onclick="setDifficulty('Nightmare')">🔴 Nightmare Tier</button>
     </div>
 
+    <!-- Class Selection -->
     <div id="screen-class" class="screen">
         <h2>Choose Class</h2>
         <div class="grid">
@@ -85,22 +101,24 @@
         <button onclick="setClass('Monk')">🥋 Monk</button>
     </div>
 
+    <!-- Exploration / Encounter Screen -->
     <div id="screen-explore" class="screen">
         <div class="hud" id="explore-hud"></div>
         <div id="story-prompt" class="story-text">You step into the dark dungeon...</div>
-        <div id="encounter-graphic" class="graphic">🚪</div>
+        <div id="encounter-graphic" class="graphic">🔦</div>
         
-        <div id="explore-actions" style="width: 100%;">
-            <button onclick="stepForward()">Walk Forward</button>
-            <button onclick="openBag()">🎒 Open Bag</button>
+        <div id="explore-actions" style="width: 100%; display: block;">
+            <button id="btn-walk" onclick="stepForward()">Walk Forward</button>
+            <button id="btn-bag" onclick="openBag()">🎒 Open Bag</button>
         </div>
 
         <div id="encounter-actions" class="grid" style="display: none;">
-            <button onclick="startCombat()">⚔️ Fight</button>
-            <button onclick="attemptFlee()">🏃 Flee</button>
+            <button id="btn-fight" onclick="startCombat()">⚔️ Fight</button>
+            <button id="btn-flee" onclick="attemptFlee()">🏃 Flee</button>
         </div>
     </div>
 
+    <!-- Battle Screen -->
     <div id="screen-battle" class="screen">
         <div class="hud" id="battle-hud"></div>
         <div id="combat-graphic" class="graphic">🎲</div>
@@ -111,106 +129,214 @@
         <div id="log">Battle start!</div>
     </div>
 
+    <!-- Vendor Screen -->
     <div id="screen-vendor" class="screen">
         <div class="hud" id="vendor-hud"></div>
         <div class="graphic">🧙‍♂️</div>
-        <h2>Merchant</h2>
+        <h2 id="vendor-msg">Merchant</h2>
         <button onclick="buyItem('potion', 25)">🧪 Potion (25g)</button>
         <button onclick="buyItem('weapon', 100)">⚔️ Upgrade Atk (100g)</button>
         <button onclick="buyItem('armor', 100)">🛡️ Upgrade AC (100g)</button>
-        <button onclick="endEncounter()">Leave</button>
+        <button id="btn-leave-vendor" onclick="endEncounter()">Leave</button>
+    </div>
+
+    <!-- Campaign Epilogue Screen -->
+    <div id="screen-victory" class="screen">
+        <h1 style="color:var(--gold); text-shadow: 0 0 10px var(--gold);">👑 CAMPAIGN WON 👑</h1>
+        <div id="victory-text" class="scrollable-ending">Stitching epilogue...</div>
+        <button id="btn-restart" onclick="location.reload()" style="margin-top:15px;">New Adventure</button>
     </div>
 
     <script>
-        // --- Audio System ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // --- Audio System Safely Deferred for Wearable Policies ---
+        let audioCtx = null;
         function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-            
-            if (type === 'roll') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
-                osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
-                gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now); osc.stop(now + 0.1);
-            } else if (type === 'hit') {
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-                gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                osc.start(now); osc.stop(now + 0.2);
-            } else if (type === 'miss') {
-                osc.type = 'square'; osc.frequency.setValueAtTime(100, now);
-                gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now); osc.stop(now + 0.3);
-            } else if (type === 'coin') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now);
-                osc.frequency.setValueAtTime(1600, now + 0.1);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0, now + 0.3);
-                osc.start(now); osc.stop(now + 0.3);
-            } else if (type === 'win') {
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
-                osc.frequency.setValueAtTime(659, now + 0.2);
-                gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
-                osc.start(now); osc.stop(now + 0.5);
-            }
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                
+                if (type === 'roll') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                    gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'hit') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                    gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'miss') {
+                    osc.type = 'square'; osc.frequency.setValueAtTime(100, now);
+                    gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'coin') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.setValueAtTime(1600, now + 0.1);
+                    gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'win') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.setValueAtTime(659, now + 0.2);
+                    gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                    osc.start(now); osc.stop(now + 0.5);
+                }
+            } catch(e) { console.log(e); }
         }
 
-        // --- Data Definitions ---
+        // --- Data Definitions with Dynamic Attack Types ---
         const classBlueprints = {
-            'Sorcerer': { hp: 25, ac: 11, atk: 5, dmgDie: 10, icon: '🔮' },
-            'Knight':   { hp: 40, ac: 16, atk: 4, dmgDie: 8,  icon: '⚔️' },
-            'Assassin': { hp: 30, ac: 14, atk: 6, dmgDie: 6,  icon: '🗡️' },
-            'Thief':    { hp: 32, ac: 13, atk: 5, dmgDie: 8,  icon: '🏹' },
-            'Monk':     { hp: 35, ac: 15, atk: 5, dmgDie: 6,  icon: '🥋' }
+            'Sorcerer': { hp: 25, ac: 11, atk: 5, dmgDie: 10, icon: '🔮', attacks: ["cast a blazing Fireball", "channeled an Arcane Bolt", "unleashed a Lightning Strike"] },
+            'Knight':   { hp: 40, ac: 16, atk: 4, dmgDie: 8,  icon: '⚔️', attacks: ["delivered a heavy Shield Bash", "swung a claymore Iron Cleave", "executed a precise Blade Thrust"] },
+            'Assassin': { hp: 30, ac: 14, atk: 6, dmgDie: 6,  icon: '🗡️', attacks: ["executed a Shadow Strike", "slashed from the darkness", "flung a venomous Throwing Dagger"] },
+            'Thief':    { hp: 32, ac: 13, atk: 5, dmgDie: 8,  icon: '🏹', attacks: ["fired a Pinpoint Arrow", "performed a swift Pocket Slice", "landed a calculated Backstab"] },
+            'Monk':     { hp: 35, ac: 15, atk: 5, dmgDie: 6,  icon: '🥋', attacks: ["unleashed a Ki Palm Blast", "executed a Flying Crane Kick", "delivered a lightning Dragon Punch"] }
         };
 
-        const enemyNames = ['Goblin', 'Skeleton', 'Orc', 'Troll', 'Wraith', 'Golem'];
+        const monsterPools = {
+            'Easy': [
+                { name: 'Giant Cave Rat', icon: '🐀' }, { name: 'Vile Cave Goblin', icon: '👺' }, { name: 'Scout Kobold', icon: '🦎' },
+                { name: 'Rusted Skeleton', icon: '💀' }, { name: 'Decayed Zombie', icon: '🧟' }, { name: 'Thick-Web Spider', icon: '🕷️' },
+                { name: 'Screeching Bat', icon: '🦇' }, { name: 'Hooded Cultist', icon: '🧙' }, { name: 'Highway Highwayman', icon: '👤' },
+                { name: 'Sewer Centipede', icon: '🐛' }, { name: 'Forest Sprite', icon: '🧚' }, { name: 'Woodland Pixie', icon: '🧚‍♀️' },
+                { name: 'Gorged Stirge', icon: '🦟' }, { name: 'Savage Troglodyte', icon: '🦎' }, { name: 'Vengeful Twig Blight', icon: '🌱' },
+                { name: 'Grimlock Stalker', icon: '👣' }, { name: 'Cavern Ooze', icon: '🦠' }, { name: 'Myconid Sprout', icon: '🍄' },
+                { name: 'Cave Shrieker', icon: '🍄' }, { name: 'Acid Rust Monster', icon: '🦂' }, { name: 'Poison Tree Frog', icon: '🐸' }
+            ],
+            'Normal': [
+                { name: 'Bloodlust Orc', icon: '👹' }, { name: 'Savage Bugbear', icon: '🐻' }, { name: 'Dire Wolf Shadow', icon: '🐺' },
+                { name: 'Desert Gnoll Thief', icon: '🐺' }, { name: 'Screaming Harpy', icon: '🦅' }, { name: 'Stone Gargoyle', icon: '🗿' },
+                { name: 'Graveyard Ghoul', icon: '🧟‍♂️' }, { name: 'Hill Ogre Marauder', icon: '🧌' }, { name: 'Gelatinous Cube', icon: '🧊' },
+                { name: 'Swamp Lizardfolk', icon: '🐊' }, { name: 'Infected Wererat', icon: '🐀' }, { name: 'Cursed Werewolf', icon: '🐺' },
+                { name: 'Labyrinth Minotaur', icon: '🐂' }, { name: 'Ferocious Owlbear', icon: '🦉' }, { name: 'Cloud Griffon', icon: '🦅' },
+                { name: 'Weaving Shadow Wraith', icon: '👥' }, { name: 'Stitched Flesh Golem', icon: '🧟' }, { name: 'Ettercap Trapper', icon: '🕷️' },
+                { name: 'Embalmed Crypt Mummy', icon: '🧟' }, { name: 'Chill Barrow Wight', icon: '👻' }, { name: 'Fiery Hell Hound', icon: '🔥' }
+            ],
+            'Nightmare': [
+                { name: 'Ancient Red Dragon', icon: '🐉' }, { name: 'Dread Lich Lord', icon: '💀' }, { name: 'Gazing Beholder', icon: '👁️' },
+                { name: 'Mind Flayer Elite', icon: '🦑' }, { name: 'Colossal Iron Golem', icon: '🧱' }, { name: 'Abyssal Balor Demon', icon: '😈' },
+                { name: 'Pit Fiend Overlord', icon: '👹' }, { name: 'Deep Sea Kraken', icon: '🐙' }, { name: 'Scorching Chimera', icon: '🦁' },
+                { name: 'Cavern Hydra', icon: '🐉' }, { name: 'Unholy Death Knight', icon: '💀' }, { name: 'Vampire Lord Noble', icon: '🧛' },
+                { name: 'Purple Dread Worm', icon: '🪱' }, { name: 'Floating Demilich', icon: '💀' }, { name: 'Ancient Gold Dragon', icon: '🐲' },
+                { name: 'Six-Armed Marilith', icon: '🐍' }, { name: 'Glabrezu Archdemon', icon: '👿' }, { name: 'Frost Giant King', icon: '❄️' },
+                { name: 'Fire Giant Warlord', icon: '🌋' }, { name: 'Shadow Drider Queen', icon: '🕷️' }, { name: 'Lightning Behir', icon: '⚡' }
+            ]
+        };
+
         const storyLines = [
-            "You enter a damp, echoing chamber...",
-            "Torches flicker in the drafty hall...",
-            "Bones crunch beneath your boots...",
-            "A foul stench drifts from the shadows...",
+            "You enter a damp, echoing chamber...", "Torches flicker in the drafty hall...",
+            "Bones crunch beneath your boots...", "A foul stench drifts from the shadows...",
             "You find a blood-stained altar..."
         ];
 
         // --- State Variables ---
-        let player = { level: 1, xp: 0, gold: 0, potions: 2, weaponMod: 0, armorMod: 0 };
+        let chosenDifficulty = 'Easy';
+        let player = { level: 1, hp: 0, maxHp: 0, xp: 0, gold: 0, potions: 2, weaponMod: 0, armorMod: 0, battlesWon: 0 };
         let enemy = {};
+        let activeMission = null;
 
-        // --- Core Functions ---
+        // --- Core Navigation Engine ---
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+            const targetScreen = document.getElementById(id);
+            targetScreen.classList.add('active');
             updateHUDs();
+            focusFirstAvailableButton(targetScreen);
         }
 
-        function updateHUDs() {
-            const pStats = `LVL ${player.level} | <span class="text-success">HP: ${player.hp}/${player.maxHp}</span> | <span class="text-gold">${player.gold}g</span> | 🧪x${player.potions}`;
-            document.getElementById('explore-hud').innerHTML = pStats;
-            document.getElementById('vendor-hud').innerHTML = pStats;
-            if(enemy.hp !== undefined) {
-                document.getElementById('battle-hud').innerHTML = `${pStats} <br> <span class="text-danger">Foe: ${enemy.hp} HP</span>`;
-            }
+        function focusFirstAvailableButton(container) {
+            setTimeout(() => {
+                const elements = Array.from(container.querySelectorAll('button'));
+                const validBtn = elements.find(b => {
+                    const style = window.getComputedStyle(b);
+                    return style.display !== 'none' && style.visibility !== 'hidden' && !b.disabled;
+                });
+                if (validBtn) validBtn.focus();
+            }, 60);
+        }
+
+        function setDifficulty(diff) {
+            chosenDifficulty = diff;
+            playSound('roll');
+            showScreen('screen-class');
         }
 
         function setClass(cls) {
             const bp = classBlueprints[cls];
-            player = { ...player, ...bp, maxHp: bp.hp, name: cls, level: 1, xp: 0, gold: 50, potions: 2, weaponMod: 0, armorMod: 0 };
+            player = { ...player, ...bp, maxHp: bp.hp, name: cls, level: 1, xp: 0, gold: 50, potions: 2, weaponMod: 0, armorMod: 0, battlesWon: 0 };
             playSound('roll');
+            generateNewMission();
             resetExplore();
             showScreen('screen-explore');
         }
 
+        function generateNewMission() {
+            const types = ['slay', 'gold'];
+            const chosenType = types[Math.floor(Math.random() * types.length)];
+            
+            if (chosenType === 'slay') {
+                activeMission = {
+                    type: 'slay',
+                    target: 2 + Math.floor(player.level / 2),
+                    current: 0,
+                    goldReward: 40 + (player.level * 10),
+                    xpReward: 60,
+                    desc: `Slay ${2 + Math.floor(player.level / 2)} Foe`
+                };
+            } else {
+                activeMission = {
+                    type: 'gold',
+                    target: 50 + (player.level * 20),
+                    current: 0,
+                    potionReward: 1,
+                    xpReward: 40,
+                    desc: `Gain ${50 + (player.level * 20)}g Loot`
+                };
+            }
+        }
+
+        function updateHUDs() {
+            const row1 = `<div>LVL ${player.level} ${player.name} (${chosenDifficulty})</div> <div class="text-gold"><b>Campaign: ${player.battlesWon}/40 Wins</b></div>`;
+            const row2 = `<div><span class="text-success">HP: ${player.hp}/${player.maxHp}</span> | <span class="text-gold">${player.gold}g</span> | 🧪x${player.potions}</div>`;
+            
+            let missionText = `<span class="text-mission">No active mission</span>`;
+            if (activeMission) {
+                missionText = `<span class="text-mission">📜 ${activeMission.desc} (${activeMission.current}/${activeMission.target})</span>`;
+            }
+            const row3 = `<div>${missionText}</div>`;
+
+            const fullHudHTML = `<div class="hud-row">${row1}</div><div class="hud-row">${row2}</div><div class="hud-row">${row3}</div>`;
+            
+            const expHud = document.getElementById('explore-hud');
+            const venHud = document.getElementById('vendor-hud');
+            const batHud = document.getElementById('battle-hud');
+
+            if (expHud) expHud.innerHTML = fullHudHTML;
+            if (venHud) venHud.innerHTML = fullHudHTML;
+            if (batHud) {
+                if (enemy.hp !== undefined) {
+                    batHud.innerHTML = fullHudHTML + `<div class="hud-row" style="margin-top:4px;"><span class="text-danger">🔥 Foe: ${enemy.name} (${enemy.hp} HP)</span></div>`;
+                } else {
+                    batHud.innerHTML = fullHudHTML;
+                }
+            }
+        }
+
         // --- Exploration Engine ---
         function resetExplore() {
+            if (player.battlesWon >= 40) {
+                triggerCampaignVictory();
+                return;
+            }
             document.getElementById('explore-actions').style.display = 'block';
             document.getElementById('encounter-actions').style.display = 'none';
             document.getElementById('story-prompt').innerText = "The corridor stretches forward. What will you do?";
             document.getElementById('encounter-graphic').innerText = '🔦';
             updateHUDs();
+            focusFirstAvailableButton(document.getElementById('screen-explore'));
         }
 
         function stepForward() {
@@ -219,69 +345,115 @@
             const flavor = storyLines[Math.floor(Math.random() * storyLines.length)];
             
             if (roll < 0.2) {
-                // 20% Merchant
+                document.getElementById('vendor-msg').innerText = "Merchant";
                 showScreen('screen-vendor');
-            } else if (roll < 0.3) {
-                // 10% Empty/Loot
-                const foundG = Math.floor(Math.random() * 20) + 10;
+            } else if (roll < 0.35) {
+                const foundG = Math.floor(Math.random() * 20) + 15;
                 player.gold += foundG;
-                document.getElementById('story-prompt').innerText = `${flavor}\nYou found a pouch with ${foundG} gold!`;
+                document.getElementById('story-prompt').innerText = `${flavor}\nYou discovered a hidden chest containing ${foundG} gold!`;
                 document.getElementById('encounter-graphic').innerText = '💰';
                 playSound('coin');
+                
+                if (activeMission && activeMission.type === 'gold') {
+                    activeMission.current += foundG;
+                    checkMissionCompletion();
+                }
                 updateHUDs();
+                focusFirstAvailableButton(document.getElementById('screen-explore'));
             } else {
-                // 70% Combat
                 spawnEnemy();
-                document.getElementById('story-prompt').innerHTML = `${flavor}<br><span class="text-danger">A ${enemy.name} attacks!</span>`;
+                document.getElementById('story-prompt').innerHTML = `${flavor}<br><span class="text-danger">A dangerous ${enemy.name} blocks your route!</span>`;
                 document.getElementById('encounter-graphic').innerText = enemy.icon;
                 document.getElementById('explore-actions').style.display = 'none';
                 document.getElementById('encounter-actions').style.display = 'flex';
+                focusFirstAvailableButton(document.getElementById('screen-explore'));
             }
         }
 
         function spawnEnemy() {
-            // Scale enemy based on player level
-            const eName = enemyNames[Math.floor(Math.random() * enemyNames.length)];
+            const pool = monsterPools[chosenDifficulty];
+            const blueprint = pool[Math.floor(Math.random() * pool.length)];
+            
+            let baseHp = 15, baseAc = 10, baseAtk = 2, baseDmg = 6;
+            if (chosenDifficulty === 'Normal') { baseHp = 35; baseAc = 13; baseAtk = 4; baseDmg = 8; }
+            if (chosenDifficulty === 'Nightmare') { baseHp = 70; baseAc = 16; baseAtk = 7; baseDmg = 12; }
+            
             enemy = {
-                name: eName,
-                icon: '👹',
-                maxHp: 15 + (player.level * 10),
-                hp: 15 + (player.level * 10),
-                ac: 10 + Math.floor(player.level / 2),
-                atk: 2 + player.level,
-                dmgDie: 6 + Math.floor(player.level / 3)
+                name: blueprint.name,
+                icon: blueprint.icon,
+                maxHp: baseHp + (player.level * 8),
+                hp: baseHp + (player.level * 8),
+                ac: baseAc + Math.floor(player.level / 2),
+                atk: baseAtk + player.level,
+                dmgDie: baseDmg + Math.floor(player.level / 3)
             };
+        }
+
+        // --- Procedural Monster Attack Typings ---
+        function getMonsterAttackString(name) {
+            const n = name.toLowerCase();
+            if (n.includes('dragon')) return "breathed catastrophic hellfire";
+            if (n.includes('lich') || n.includes('beholder') || n.includes('flayer') || n.includes('wraith') || n.includes('demon') || n.includes('fiend') || n.includes('cult') || n.includes('ghost') || n.includes('harpy') || n.includes('wight')) return "unleashed an eldritch curse";
+            if (n.includes('rat') || n.includes('wolf') || n.includes('hound') || n.includes('spider') || n.includes('bat') || n.includes('stirge') || n.includes('croc') || n.includes('bear') || n.includes('chimera') || n.includes('hydra') || n.includes('frog') || n.includes('scorpion') || n.includes('bugbear') || n.includes('owlbear')) return "snapped razor-sharp venomous jaws";
+            if (n.includes('skeleton') || n.includes('zombie') || n.includes('ghoul') || n.includes('mummy') || n.includes('golem')) return "rent with terrifying necrotic claws";
+            if (n.includes('ooze') || n.includes('cube') || n.includes('centipede') || n.includes('acid') || n.includes('worm')) return "sprayed blinding corrosive acid";
+            return "swung a heavy, bone-crushing weapon";
+        }
+
+        function checkMissionCompletion() {
+            if (activeMission && activeMission.current >= activeMission.target) {
+                playSound('win');
+                let rewardText = "<br><span class='text-success'>★ Mission Completed! Reward: ";
+                if (activeMission.type === 'slay') {
+                    player.gold += activeMission.goldReward;
+                    player.xp += activeMission.xpReward;
+                    rewardText += `+${activeMission.goldReward}g, +${activeMission.xpReward} XP`;
+                } else {
+                    player.potions += activeMission.potionReward;
+                    player.xp += activeMission.xpReward;
+                    rewardText += `+${activeMission.potionReward} Potion, +${activeMission.xpReward} XP`;
+                }
+                rewardText += "</span>";
+                
+                document.getElementById('story-prompt').innerHTML += rewardText;
+                generateNewMission();
+                checkLevelUp();
+            }
         }
 
         function openBag() {
             if (player.potions > 0) {
                 if (player.hp >= player.maxHp) {
-                    document.getElementById('story-prompt').innerText = "Your health is already full!";
+                    document.getElementById('story-prompt').innerText = "Your health is already maxed out!";
                     return;
                 }
                 player.potions--;
-                player.hp = Math.min(player.maxHp, player.hp + 25);
+                player.hp = Math.min(player.maxHp, player.hp + 30);
                 playSound('win');
-                document.getElementById('story-prompt').innerText = "You drank a potion. Restored 25 HP.";
+                document.getElementById('story-prompt').innerText = "You consumed a healing potion. Restored 30 HP.";
                 updateHUDs();
             } else {
-                document.getElementById('story-prompt').innerText = "You have no potions left!";
+                document.getElementById('story-prompt').innerText = "Your bag contains no potions!";
             }
         }
 
         function attemptFlee() {
             playSound('roll');
-            if (Math.random() > 0.5) {
-                document.getElementById('story-prompt').innerText = "You successfully escaped back into the shadows!";
+            if (Math.random() > 0.4) {
+                document.getElementById('story-prompt').innerText = "You safely navigated backward away from the danger.";
                 document.getElementById('explore-actions').style.display = 'block';
                 document.getElementById('encounter-actions').style.display = 'none';
+                focusFirstAvailableButton(document.getElementById('screen-explore'));
             } else {
                 const dmg = Math.floor(Math.random() * enemy.dmgDie) + 1;
                 player.hp -= dmg;
-                alert(`Failed to flee! The ${enemy.name} hit you for ${dmg} damage!`);
+                document.getElementById('story-prompt').innerHTML = `<span class="text-danger">Escape path blocked!</span> The ${enemy.name} caught your movement and dealt ${dmg} dmg!`;
                 updateHUDs();
-                if (player.hp <= 0) gameOver();
-                else startCombat();
+                if (player.hp <= 0) {
+                    setTimeout(gameOver, 1500);
+                } else {
+                    setTimeout(startCombat, 1500);
+                }
             }
         }
 
@@ -291,7 +463,7 @@
             document.getElementById('btn-roll').style.display = 'block';
             document.getElementById('btn-continue').style.display = 'none';
             document.getElementById('btn-roll').disabled = false;
-            logMsg(`Engaged ${enemy.name}!`);
+            logMsg(`Battle initiated with ${enemy.name}!`);
             showScreen('screen-battle');
         }
 
@@ -299,10 +471,9 @@
         function logMsg(msg) { document.getElementById('log').innerHTML = msg; }
 
         function rollDice() {
-            playSound('roll');
             document.getElementById('btn-roll').disabled = true;
+            playSound('roll');
             
-            // Player Turn
             const d20 = rollD(20);
             const totalAtk = d20 + player.atk + player.weaponMod;
             
@@ -310,17 +481,21 @@
                 if (d20 === 20 || totalAtk >= enemy.ac) {
                     playSound('hit');
                     let dmg = rollD(player.dmgDie) + player.weaponMod;
-                    if (d20 === 20) dmg += rollD(player.dmgDie); // Crit
+                    if (d20 === 20) dmg += rollD(player.dmgDie); 
                     enemy.hp -= dmg;
-                    logMsg(`Rolled ${d20}. <span class="highlight">HIT!</span> ${dmg} dmg!`);
+                    
+                    // Pick a random class attack string
+                    const pAttacks = classBlueprints[player.name].attacks;
+                    const pAtkStr = pAttacks[Math.floor(Math.random() * pAttacks.length)];
+                    logMsg(`Rolled ${d20}. You <span class="highlight">${pAtkStr}</span>!<br>Hit for <span class="text-success">${dmg} damage</span>.`);
                 } else {
                     playSound('miss');
-                    logMsg(`Rolled ${d20}. Missed!`);
+                    logMsg(`Rolled ${d20}. Your attack was deflected by armor!`);
                 }
                 updateHUDs();
                 
                 if (enemy.hp <= 0) { winCombat(); return; }
-                setTimeout(enemyTurn, 1200);
+                setTimeout(enemyTurn, 1400);
             }, 500);
         }
 
@@ -333,37 +508,177 @@
                 playSound('hit');
                 let dmg = rollD(enemy.dmgDie);
                 player.hp -= dmg;
-                logMsg(`${enemy.name} <span class="text-danger">hits</span> for ${dmg} dmg!`);
+                
+                // Get procedurally parsed monster attack string
+                const mAtkStr = getMonsterAttackString(enemy.name);
+                logMsg(`${enemy.name} <span class="text-danger">${mAtkStr}</span>!<br>You took <span class="text-danger">${dmg} damage</span>.`);
             } else {
                 playSound('miss');
-                logMsg(`${enemy.name} misses!`);
+                logMsg(`${enemy.name} lunged, but missed your defense loop!`);
             }
             updateHUDs();
             
             if (player.hp <= 0) gameOver();
-            else document.getElementById('btn-roll').disabled = false;
+            else {
+                document.getElementById('btn-roll').disabled = false;
+                document.getElementById('btn-roll').focus();
+            }
         }
 
         function winCombat() {
             playSound('win');
-            const xpGained = 50 * enemy.maxHp / 10;
-            const goldGained = Math.floor(Math.random() * 15) + (5 * player.level);
+            player.battlesWon++;
+            
+            const xpGained = 40 * (chosenDifficulty === 'Easy' ? 1 : chosenDifficulty === 'Normal' ? 2 : 4);
+            const goldGained = Math.floor(Math.random() * 15) + (chosenDifficulty === 'Nightmare' ? 35 : 10);
             
             player.xp += xpGained;
             player.gold += goldGained;
             
-            let msg = `Victory! +${goldGained}g. `;
+            let msg = `Defeated! Received +${goldGained}g, +${xpGained} XP.`;
+            logMsg(msg);
             
-            // Level Up Check
-            if (player.xp >= player.level * 100) {
+            if (activeMission && activeMission.type === 'slay') activeMission.current++;
+            if (activeMission && activeMission.type === 'gold') activeMission.current += goldGained;
+
+            checkLevelUp();
+            checkMissionCompletion();
+            
+            document.getElementById('combat-graphic').innerText = '🏆';
+            document.getElementById('btn-roll').style.display = 'none';
+            
+            const conBtn = document.getElementById('btn-continue');
+            conBtn.style.display = 'block';
+            conBtn.focus();
+        }
+
+        function checkLevelUp() {
+            const targetXp = player.level * 100;
+            if (player.xp >= targetXp) {
                 player.level++;
-                player.xp = 0;
-                player.maxHp += 8;
+                player.xp -= targetXp;
+                player.maxHp += 10;
                 player.hp = player.maxHp;
                 player.atk += 1;
-                msg += `<br><span class="text-success">LEVEL UP! Stats increased.</span>`;
+                logMsg(`Level Up! You are now level ${player.level}!`);
             }
+        }
+
+        function endEncounter() {
+            resetExplore();
+            showScreen('screen-explore');
+        }
+
+        function gameOver() {
+            playSound('miss');
+            logMsg(`<span class="text-danger">CAMPAIGN FAILED.</span>`);
+            document.getElementById('combat-graphic').innerText = '💀';
+            document.getElementById('btn-roll').style.display = 'none';
             
-            logMsg(msg);
-            document.getElementById('combat-graphic').innerText = '🏆';
-            document.getElementById
+            const btn = document.getElementById('btn-continue');
+            btn.innerText = "Restart Engine";
+            btn.style.display = 'block';
+            btn.focus();
+            btn.onclick = () => location.reload(); 
+        }
+
+        // --- Vendor Engine ---
+        function buyItem(type, cost) {
+            if (player.gold >= cost) {
+                player.gold -= cost;
+                playSound('coin');
+                if (type === 'potion') player.potions++;
+                if (type === 'weapon') player.weaponMod++;
+                if (type === 'armor') player.armorMod++;
+                document.getElementById('vendor-msg').innerText = "Upgrade successful!";
+                updateHUDs();
+            } else {
+                playSound('miss');
+                document.getElementById('vendor-msg').innerText = "Insufficient funds!";
+            }
+        }
+
+        // --- Campaign Ending Story Generator ---
+        function triggerCampaignVictory() {
+            playSound('win');
+            
+            const intros = [
+                `Following 40 brutal struggles through the deep underbelly of the maze, your supreme ${player.name} emerged into the golden dawn light.`,
+                `As the 40th foul entity collapsed into stardust, the heavy curse chaining this micro-realm instantly shattered.`,
+                `Forty structural victories have concluded your legendary trial, cementing your status across the modern pantheon.`
+            ];
+            
+            const middleNodes = {
+                'Sorcerer': "Clutching your enchanted staff, your unstable nexus of runic magic crystallized into a pure source of infinite creation, eliminating systemic corruption.",
+                'Knight': "Your scarred shield stood unbroken. Your resilient armor plating caught the rays of sunlight, reflecting a clean era of safety back to the local homesteads.",
+                'Assassin': "Melting completely back into the shadows from whence you struck, your tactical files became custom legends whispered to ward off local rogue factions.",
+                'Thief': "Your infinite gold reserves filled a grand vaults complex, funding a generation of underground trade houses and personal legendary networks.",
+                'Monk': "Your physical spirit achieved ultimate state harmony, aligning the flow of ambient energy across the mountains and unlocking hidden internal systems."
+            };
+
+            const outros = [
+                "The surrounding kingdoms safely celebrated your name, recording this campaign inside the core archives for eternity. Peace reigns supreme!",
+                "You retired to a serene domain, holding an unbreakable legacy that no shadow entity will ever dare challenge again. Victory is yours!",
+                "With the dark engine fully deactivated, you gaze upon a restored world, ready for whatever uncharted adventure awaits next."
+            ];
+
+            const combinedEpilogue = `${intros[Math.floor(Math.random() * intros.length)]}<br><br>${middleNodes[player.name]}<br><br>${outros[Math.floor(Math.random() * outros.length)]}`;
+            
+            document.getElementById('victory-text').innerHTML = combinedEpilogue;
+            showScreen('screen-victory');
+        }
+
+        // --- Global Hardware Keyboard Focus Engine ---
+        document.addEventListener('keydown', function(e) {
+            const activeScreen = document.querySelector('.screen.active');
+            if (!activeScreen) return;
+
+            const rawButtons = Array.from(activeScreen.querySelectorAll('button'));
+            const buttons = rawButtons.filter(b => {
+                const style = window.getComputedStyle(b);
+                return style.display !== 'none' && style.visibility !== 'hidden' && !b.disabled;
+            });
+            
+            if (buttons.length === 0) return;
+
+            let currentFocusIndex = buttons.indexOf(document.activeElement);
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                let nextIndex = currentFocusIndex + 1;
+                if (nextIndex >= buttons.length) nextIndex = 0;
+                buttons[nextIndex].focus();
+            } 
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                let prevIndex = currentFocusIndex - 1;
+                if (prevIndex < 0) prevIndex = buttons.length - 1;
+                buttons[prevIndex].focus();
+            } 
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentFocusIndex !== -1) {
+                    buttons[currentFocusIndex].click();
+                } else {
+                    buttons[0].click();
+                }
+            } 
+            else if (e.key === 'Escape') {
+                e.preventDefault();
+                const currentId = activeScreen.id;
+                
+                if (currentId === 'screen-class') {
+                    showScreen('screen-menu');
+                } else if (currentId === 'screen-vendor') {
+                    endEncounter();
+                } else if (currentId === 'screen-explore') {
+                    const encActions = document.getElementById('encounter-actions');
+                    if (encActions && encActions.style.display !== 'none') {
+                        attemptFlee();
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
