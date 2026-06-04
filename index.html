@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=600, height=600, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ray-Ban Meta RPG</title>
+    <style>
+        /* Optimized for Meta Ray-Ban Display 600x600 In-Lens Resolution */
+        :root {
+            --primary: #00FFEA; /* High contrast AR cyan */
+            --bg: #000000;      /* Deep black renders as transparent on AR displays */
+            --danger: #FF3366;
+            --success: #33FF77;
+        }
+        body {
+            margin: 0; padding: 0;
+            width: 600px; height: 600px;
+            background-color: var(--bg);
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+        .screen {
+            display: none;
+            width: 100%; height: 100%;
+            padding: 30px; box-sizing: border-box;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .active { display: flex; }
+        
+        h1 { font-size: 52px; text-align: center; margin: 0 0 20px 0; color: var(--primary); text-shadow: 0 0 10px var(--primary); }
+        h2 { font-size: 38px; margin: 0 0 20px 0; }
+        
+        /* Large tap targets for Neural Band swipe/pinch navigation */
+        button {
+            background: #1A1A1A; color: white;
+            border: 3px solid #333; border-radius: 16px;
+            font-size: 32px; font-weight: bold;
+            margin: 10px; padding: 20px;
+            width: 100%; cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:focus, button:hover {
+            border-color: var(--primary);
+            background: rgba(0, 255, 234, 0.1);
+            transform: scale(1.02);
+            outline: none;
+        }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        
+        /* Battle Screen UI */
+        .hud { width: 100%; display: flex; justify-content: space-between; font-size: 32px; font-weight: bold; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .player-hp { color: var(--success); }
+        .enemy-hp { color: var(--danger); }
+        
+        .graphic { font-size: 80px; margin: 20px 0; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+        
+        #log {
+            font-size: 26px; color: #AAA; height: 120px; width: 100%;
+            text-align: center; margin-top: 20px;
+            background: #111; border-radius: 12px; padding: 15px; box-sizing: border-box;
+        }
+        .highlight { color: var(--primary); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- Main Menu -->
+    <div id="screen-menu" class="screen active">
+        <h1>META DICE RPG</h1>
+        <h2>Select Difficulty</h2>
+        <button onclick="setDifficulty('Easy')">🟢 Easy (Goblin)</button>
+        <button onclick="setDifficulty('Normal')">🟡 Normal (Orc)</button>
+        <button onclick="setDifficulty('Nightmare')">🔴 Nightmare (Dragon)</button>
+    </div>
+
+    <!-- Class Selection -->
+    <div id="screen-class" class="screen">
+        <h2>Choose Class</h2>
+        <div class="grid">
+            <button onclick="setClass('Sorcerer')">🔮 Sorcerer</button>
+            <button onclick="setClass('Knight')">⚔️ Knight</button>
+            <button onclick="setClass('Assassin')">🗡️ Assassin</button>
+            <button onclick="setClass('Thief')">🏹 Thief</button>
+        </div>
+        <button onclick="setClass('Monk')">🥋 Monk</button>
+    </div>
+
+    <!-- Battle Screen -->
+    <div id="screen-battle" class="screen">
+        <div class="hud">
+            <div class="player-hp">You: <span id="p-hp"></span> HP</div>
+            <div class="enemy-hp">Foe: <span id="e-hp"></span> HP</div>
+        </div>
+        
+        <div id="combat-graphic" class="graphic">🎲</div>
+        
+        <button id="btn-roll" onclick="rollDice()">🎲 ROLL D20 TO ATTACK</button>
+        <button id="btn-reset" onclick="resetGame()" style="display:none;">Play Again</button>
+        
+        <div id="log">Battle start! Tap to roll.</div>
+    </div>
+
+    <script>
+        // Web Audio API for onboard Meta Display open-ear speakers
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            if (type === 'roll') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'hit') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'miss') {
+                osc.type = 'square'; osc.frequency.setValueAtTime(100, now);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'win') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(554, now + 0.1);
+                osc.frequency.setValueAtTime(659, now + 0.2);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                osc.start(now); osc.stop(now + 0.5);
+            }
+        }
+
+        // Standard D&D Attributes
+        const classes = {
+            'Sorcerer': { hp: 20, maxHp: 20, ac: 12, atk: 6, dmgDie: 10, dmgMod: 0, icon: '🔮' },
+            'Knight':   { hp: 35, maxHp: 35, ac: 18, atk: 5, dmgDie: 8,  dmgMod: 2, icon: '⚔️' },
+            'Assassin': { hp: 25, maxHp: 25, ac: 15, atk: 7, dmgDie: 6,  dmgMod: 3, icon: '🗡️' },
+            'Thief':    { hp: 28, maxHp: 28, ac: 14, atk: 5, dmgDie: 8,  dmgMod: 1, icon: '🏹' },
+            'Monk':     { hp: 30, maxHp: 30, ac: 16, atk: 6, dmgDie: 6,  dmgMod: 2, icon: '🥋' }
+        };
+
+        const enemies = {
+            'Easy':      { name: 'Goblin',  hp: 20, maxHp: 20, ac: 12, atk: 3, dmgDie: 6, dmgMod: 0, icon: '🟢' },
+            'Normal':    { name: 'Orc',     hp: 45, maxHp: 45, ac: 14, atk: 5, dmgDie: 8, dmgMod: 2, icon: '🟡' },
+            'Nightmare': { name: 'Dragon',  hp: 85, maxHp: 85, ac: 18, atk: 8, dmgDie: 12, dmgMod: 4, icon: '🔴' }
+        };
+
+        let player = {};
+        let enemy = {};
+
+        // Navigation Engine
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function setDifficulty(diff) {
+            enemy = JSON.parse(JSON.stringify(enemies[diff]));
+            playSound('roll');
+            showScreen('screen-class');
+        }
+
+        function setClass(cls) {
+            player = JSON.parse(JSON.stringify(classes[cls]));
+            player.name = cls;
+            playSound('roll');
+            updateHUD();
+            logMsg(`A wild <span class="highlight">${enemy.name}</span> appears!`);
+            document.getElementById('combat-graphic').innerText = enemy.icon + ' vs ' + player.icon;
+            showScreen('screen-battle');
+        }
+
+        function rollD(sides) {
+            return Math.floor(Math.random() * sides) + 1;
+        }
+
+        function logMsg(msg) {
+            document.getElementById('log').innerHTML = msg;
+        }
+
+        function updateHUD() {
+            document.getElementById('p-hp').innerText = Math.max(0, player.hp);
+            document.getElementById('e-hp').innerText = Math.max(0, enemy.hp);
+        }
+
+        // Combat Engine (Standard D&D Rules)
+        function rollDice() {
+            playSound('roll');
+            document.getElementById('btn-roll').disabled = true;
+            
+            // Player Turn
+            const d20 = rollD(20);
+            const totalAtk = d20 + player.atk;
+            
+            setTimeout(() => {
+                // To Hit Roll (d20 + Atk Bonus vs Enemy AC)
+                if (d20 === 20 || totalAtk >= enemy.ac) {
+                    playSound('hit');
+                    const isCrit = (d20 === 20);
+                    let dmg = rollD(player.dmgDie) + player.dmgMod;
+                    if (isCrit) dmg += rollD(player.dmgDie); // Crit rules: double dice
+                    
+                    enemy.hp -= dmg;
+                    logMsg(`Rolled ${d20}+${player.atk}. <span class="highlight">HIT!</span><br>Dealt ${dmg} dmg!`);
+                } else {
+                    playSound('miss');
+                    logMsg(`Rolled ${d20}+${player.atk}. <br>Missed the ${enemy.name}!`);
+                }
+                updateHUD();
+                
+                if (enemy.hp <= 0) { endGame(true); return; }
+                
+                // Enemy Turn Delay (Gives user time to read display)
+                setTimeout(enemyTurn, 1500);
+            }, 500);
+        }
+
+        function enemyTurn() {
+            const d20 = rollD(20);
+            const totalAtk = d20 + enemy.atk;
+            
+            if (d20 === 20 || totalAtk >= player.ac) {
+                playSound('hit');
+                let dmg = rollD(enemy.dmgDie) + enemy.dmgMod;
+                player.hp -= dmg;
+                logMsg(`${enemy.name} attacks! (${totalAtk}) <br><span class="highlight">Hits</span> for ${dmg} dmg!`);
+            } else {
+                playSound('miss');
+                logMsg(`${enemy.name} attacks! (${totalAtk}) <br>Missed!`);
+            }
+            updateHUD();
+            
+            if (player.hp <= 0) {
+                endGame(false);
+            } else {
+                document.getElementById('btn-roll').disabled = false;
+            }
+        }
+
+        function endGame(playerWon) {
+            document.getElementById('btn-roll').style.display = 'none';
+            document.getElementById('btn-reset').style.display = 'block';
+            if (playerWon) {
+                playSound('win');
+                logMsg(`<span class="highlight">VICTORY!</span><br>The ${enemy.name} is defeated!`);
+                document.getElementById('combat-graphic').innerText = '🏆';
+            } else {
+                playSound('miss');
+                logMsg(`DEFEAT!<br>You have fallen in battle.`);
+                document.getElementById('combat-graphic').innerText = '💀';
+            }
+        }
+
+        function resetGame() {
+            document.getElementById('btn-roll').style.display = 'block';
+            document.getElementById('btn-roll').disabled = false;
+            document.getElementById('btn-reset').style.display = 'none';
+            showScreen('screen-menu');
+        }
+    </script>
+</body>
+</html>
