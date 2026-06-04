@@ -571,12 +571,12 @@
 
         function gameOver() {
             playSound('miss');
-            logMsg(`<span class="text-danger">CAMPAIGN FAILED.</span>`);
+            logMsg(`<span class="text-danger">You Died!</span>`);
             document.getElementById('combat-graphic').innerText = '💀';
             document.getElementById('btn-roll').style.display = 'none';
             
             const btn = document.getElementById('btn-continue');
-            btn.innerText = "Restart Engine";
+            btn.innerText = "Respawn";
             btn.style.display = 'block';
             btn.focus();
             btn.onclick = () => location.reload(); 
